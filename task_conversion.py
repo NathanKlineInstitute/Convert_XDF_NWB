@@ -84,6 +84,10 @@ for i in working_list:
                 if k['info']['effective_srate'] > 0:
                     new_times_o = anonymizeTime(k['time_stamps'], time_zero)
                     opensignalsData3(k['info'], k['time_series'], new_times_o, nwbfile)
+            case 'cpCST':
+                if k['info']['effective_srate'] > 0:
+                    new_times_c = anonymizeTime(k['time_stamps'], time_zero)
+                    cstData(k['info'], k['time_series'], new_times_c, nwbfile)
 
     #writing to nwb file
     nwbfname = fname.replace('_lsl.xdf.gz', '.nwb')
