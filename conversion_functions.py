@@ -336,6 +336,11 @@ def argusData2(info, data, time, nwb):
         timestamps = time,
         reference_frame = '(0,0) is bottom left corner'
     )
+    eyePosition = Position(
+        name = 'Eyetrack_Argus',
+        spatial_series = eyetrack
+        )
+    
 
     monitor_eyetrack = SpatialSeries(
         name = "Monitor_Eyetrack_Argus",
@@ -344,6 +349,11 @@ def argusData2(info, data, time, nwb):
         timestamps = time,
         reference_frame = '(0,0) is the center of the monitor'
     )
+    monitorPosition = Position(
+        name = 'Monitor_Eyetrack_Argus',
+        spatial_series = monitor_eyetrack
+        )
+    
     
     pupil_diameters = TimeSeries(
         name = "Pupil_Diameters_Argus",
@@ -360,16 +370,21 @@ def argusData2(info, data, time, nwb):
         timestamps = time,
         reference_frame ='[0, 0, 0] is located at the tracker'
     )
+    headPosition = Position(
+        name = 'Head_Location_Argus',
+        spatial_series = head_tracking_xyz
+        )
     
-    head_tracking_rotation = SpatialSeries(
+    
+    head_tracking_rotation = TimeSeries(
         name ="Head_Rotation_Argus",
         description =','.join(headrotate),
         data = head_tracking_data_rotation.astype(float),
         timestamps = time,
-        reference_frame ='[-180, 0, 0] is the head upright and looking straight ahead at the monitor'
+        unit = 'degrees'
     )
 
-    totaldata = [eyetrack, monitor_eyetrack, pupil_diameters, head_tracking_xyz, head_tracking_rotation]
+    totaldata = [pupil_diameters, head_tracking_rotation, eyePosition, monitorPosition, headPosition]
     for i in totaldata:
         nwb.add_acquisition(i)
 
@@ -397,6 +412,10 @@ def eyelinkData(info, data, time, nwb):
         timestamps = times,
         reference_frame = 'placeholder'
     )
+    lefteyePosition = Position(
+        name = "Left_eye_gaze",
+        spatial_series = lefteyetrack
+    )
 
     #-----------------------Right Eye Positional Data----------------------------#
     #pulling right eye data
@@ -410,6 +429,9 @@ def eyelinkData(info, data, time, nwb):
         timestamps = times,
         reference_frame = 'placeholder'
     )
+    righteyePosition = Position(
+        name = "Right_eye_gaze",
+        spatial_series = righteyetrack
 
     #-----------------------Pupil Data----------------------------#
     #pulling pupil size data
@@ -429,15 +451,15 @@ def eyelinkData(info, data, time, nwb):
     pupil_angle = df_trimmed.loc[:, ['pixelsPerDegreesX','pixelsPerDegreesY']]
     pupil_angle_arr = pd.DataFrame.to_numpy(pupil_angle)
 
-    pupil_rotation_eyelink = SpatialSeries(
+    pupil_rotation_eyelink = TimeSeries(
         name = "Pupil_Rotation_Eyelink",
         description = ','.join(list(pupil_angle.columns)),
         data = pupil_angle_arr,
         timestamps = times,
-        reference_frame = "placeholder",
+        units = "placeholder",
     )
 
-    total_data = [lefteyetrack, righteyetrack, pupil_diameters_eyelink, pupil_rotation_eyelink]
+    total_data = [lefteyePosition, righteyePostion, pupil_diameters_eyelink, pupil_rotation_eyelink]
 
     for i in total_data:
         nwb.add_acquisition(i)
