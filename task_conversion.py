@@ -52,6 +52,13 @@ for i in working_list:
         experiment_description=name[2],
         session_id=name[1]
     )
+    subject = Subject(
+        subject_id=name[0],
+        age="P0D/",
+        description="N/A",
+        sex="U",
+        species="Homo sapiens"
+    )
 
     #Getting all relavent info, data, and times to import into nwb file based on stream names
     for k in streams:
