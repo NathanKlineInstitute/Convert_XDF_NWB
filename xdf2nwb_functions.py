@@ -51,19 +51,36 @@ def getUnits(info):
         units.append(i['unit'][0])
     return units
 
-# Finds a specific stream from xdf file
+# Finds a specific stream from xdf file except stimlabels
 def getspeStream(streams, sname):
-    for i in streams:
-        try:
+        totalstreams = []
+        correctstreams = []
+        for i in streams:
             if i['info']['name'][0] == sname:
-                s_info = i['info']
-                s_data = i['time_series']
-                s_time = i['time_stamps']
-                return s_info, s_data, s_time
-        except Exception:
+                totalstreams.append(i)
+        for i in totalstreams:
+            if i['info']['effective_srate'] > 0:
+                correctstreams.append(i)
+        if len(correctstreams) > 0:
+            s_info = correctstreams[0]['info']
+            s_data = correctstreams[0]['time_series']
+            s_time = correctstreams[0]['time_stamps']
+            return s_info, s_data, s_time
+        elif len(correctstreams) == 0 and len(totalstreams) > 0:
+            s_info = totalstreams[0]['info']
+            s_data = totalstreams[0]['time_series']
+            s_time = totalstreams[0]['time_stamps']
+            return s_info, s_data, s_time
+        else:
+            print('Can not find stream name')
+
+# Finds stimlabels stream
+def getStimStream(streams):
+    for i in streams:
+        if i['info']['name'][0] == 'StimLabels':
             s_info = i['info']
-            s_data = []
-            s_time = []
+            s_data = i['time_series']
+            s_time = i['time_stamps']
             return s_info, s_data, s_time
         
 # Given a dataframe, extracts the desired columns and converts to numpy array        
@@ -133,24 +150,24 @@ def compressData(data):
     return wrapped_data
 
 # Converts Audio stream into a TimeSeries Object
-def audio_raw(info, data, time, nwb):
+def audio_raw(info, data, time, nwb, idx):
     
     sampling_rate = info["effective_srate"]
 
     # Creating TimeSeries Object
     audio = TimeSeries(
-        name = "Audio",
+        name = "Audio_{}".format(idx),
         description = 'Audio Recording of task. Recorded at {} Hz'.format(sampling_rate),
         data = compressData(data),
         unit = "a.u.",
-        timestamps = time
+        timestamps = compressData(time)
         )
     
     # Adding TimeSeries Object with raw data to acquisition
     nwb.add_acquisition(audio)
 
 # Converts Video stream into a TimeSeries Object
-def video_raw(info, data, time, nwb):
+def video_raw(info, data, time, nwb, idx):
     
     frame_rate = info["effective_srate"]
 
@@ -162,7 +179,7 @@ def video_raw(info, data, time, nwb):
 
     # Creating TimeSeries Object
     video = TimeSeries(
-        name = "Video",
+        name = "Video_{}".format(idx),
         description = 'Video Recording of task. Resolution of video is {} at {} Hz'.format(resolution.reverse(), frame_rate),
         data = compressData(frame_data),
         unit = "a.u.",
@@ -174,14 +191,14 @@ def video_raw(info, data, time, nwb):
 
 
 # Converts StimLabels stream into a TimeSeries Object
-def stimlabels(info, data, time, nwb):
+def stimlabels(info, data, time, nwb, idx):
     
     stimlabel_data = np.array(data)
     stimlabel_timestamps = time
 
     # Creating TimeSeries Object
     stimlabels = TimeSeries(
-        name = "StimLabels",
+        name = "StimLabels_{}".format(idx),
         description = "Stimlabels",
         data = compressData(stimlabel_data),
         unit = "a.u.",
@@ -192,7 +209,7 @@ def stimlabels(info, data, time, nwb):
     nwb.add_acquisition(stimlabels)
 
 # Converts MindLogger stream into a TimeSeries Object
-def mindloggerData(info, data, time, nwb):
+def mindloggerData(info, data, time, nwb, idx):
 
     # Creating table of all data
     df = makedataTable(info, data)
@@ -201,7 +218,7 @@ def mindloggerData(info, data, time, nwb):
     cols = ['x', 'y']
     xy = extractdata(df, cols)
 
-    # Creating TimeSeries Object
+    # Creating SpatialSeries Object
     mindlogger = SpatialSeries(
         name = "Mindlogger",
         description = "x,y",
@@ -210,11 +227,17 @@ def mindloggerData(info, data, time, nwb):
         reference_frame = "placeholder"
     )
 
+    # Creating Position object for SpatialSeries Object to be stored in
+    mindloggerpos = Position(
+        name = "Mindlogger_{}".format(idx),
+        spatial_series = mindlogger
+    )
+
     # Adding TimeSeries Object with raw data to acquisition
-    nwb.add_acquisition(mindlogger)
+    nwb.add_acquisition(mindloggerpos)
 
 # Converts OpenSignals stream into a TimeSeries Object
-def opensignalsData(info, data, time, nwb):
+def opensignalsData(info, data, time, nwb, idx):
 
     # Getting all relevent column names and units of stream
     headers = getLabels(info)
@@ -228,7 +251,7 @@ def opensignalsData(info, data, time, nwb):
 
     # Creating TimeSeries Object
     opensignals = TimeSeries(
-        name = 'allOpenSignalsData',
+        name = 'allOpenSignalsData_{}'.format(idx),
         description = colnames,
         data = compressData(finaldata),
         timestamps = time,
@@ -239,7 +262,7 @@ def opensignalsData(info, data, time, nwb):
     nwb.add_acquisition(opensignals)
 
 # Converts cpCST stream into TimeSeries Object
-def cstData(info, data, time, nwb):
+def cstData(info, data, time, nwb, idx):
 
     # Getting all relavent column names and units of stream
     headers = getLabels(info)
@@ -249,7 +272,7 @@ def cstData(info, data, time, nwb):
 
     # Creating TimeSeries Object
     cst = TimeSeries(
-        name = 'allCSTdata',
+        name = 'allCSTdata_{}'.format(idx),
         description = colnames,
         data = compressData(data),
         timestamps = time,
@@ -261,7 +284,7 @@ def cstData(info, data, time, nwb):
 
 
 # Takes all data collected from Argus eyetracking and creates several time and spatial series objects
-def argusData(info, data, time, nwb):
+def argusData(info, data, time, nwb, idx):
     
     # Create inital table of all data
     df = makedataTable(info, data)
@@ -295,7 +318,7 @@ def argusData(info, data, time, nwb):
     )
     # Creating Position object for SpatialSeries Object to be stored in
     eyePosition = Position(
-        name = 'Eyetrack_Argus',
+        name = 'Eyetrack_Argus_{}'.format(idx),
         spatial_series = eyetrack
     )
 
@@ -309,13 +332,13 @@ def argusData(info, data, time, nwb):
     )
     # Creating Position object for SpatialSeries Object to be stored in
     monitorPosition = Position(
-        name = 'Monitor_Eyetrack_Argus',
+        name = 'Monitor_Eyetrack_Argus_{}'.format(idx),
         spatial_series = monitor_eyetrack
     )
     
     # Creating TimeSeries Object
     pupil_diameters = TimeSeries(
-        name = "Pupil_Diameters_Argus",
+        name = "Pupil_Diameters_Argus_{}".format(idx),
         description = "Pupil diameter(mm) extracted from both eyes. [left eye, right eye]",
         data = compressData(pupil_diameter_data.astype(float)),
         timestamps = time,
@@ -332,13 +355,13 @@ def argusData(info, data, time, nwb):
     )
     # Creating Position object for SpatialSeries Object to be stored in
     headPosition = Position(
-        name = 'Head_Location_Argus',
+        name = 'Head_Location_Argus_{}'.format(idx),
         spatial_series = head_tracking_xyz
         )
     
     # Creating TimeSeries Object
     head_tracking_rotation = TimeSeries(
-        name ="Head_Rotation_Argus",
+        name ="Head_Rotation_Argus_{}".format(idx),
         description =','.join(headrotate),
         data = compressData(head_tracking_data_rotation.astype(float)),
         timestamps = time,
@@ -351,7 +374,7 @@ def argusData(info, data, time, nwb):
         nwb.add_acquisition(i)
 
 # Takes all data from Eyelink eyetracking and creates several time and spatial series objects
-def eyelinkData(info, data, time, nwb):
+def eyelinkData(info, data, time, nwb, idx):
     
     # Create inital table of all data
     df = makedataTable(info, data)
@@ -374,7 +397,7 @@ def eyelinkData(info, data, time, nwb):
     right_eye_pos = extractdata(df_trimmed, rightEye)
     pupil_size = extractdata(df_trimmed, LRpupils)
     pupil_angle = extractdata(df_trimmed, pupilAngle)
-    times = extractdata(df_trimmed, ['times'])
+    times = df_trimmed['times'].tolist()
 
     # Creating SpatialSeries Object
     lefteyetrack = SpatialSeries(
@@ -386,7 +409,7 @@ def eyelinkData(info, data, time, nwb):
     )
     # Creating Position object for SpatialSeries Object to be stored in
     leftEyePos = Position(
-        name = "Left_eye_gaze",
+        name = "Left_eye_gaze_{}".format(idx),
         spatial_series = lefteyetrack
     )
 
@@ -400,13 +423,13 @@ def eyelinkData(info, data, time, nwb):
     )
     # Creating Position object for SpatialSeries Object to be stored in
     rightEyePos = Position(
-        name = "Right_eye_gaze",
+        name = "Right_eye_gaze_{}".format(idx),
         spatial_series = righteyetrack
     )
 
     # Creating a TimeSeries Object
     pupil_diameters = TimeSeries(
-        name = "Pupil_Diameters_EL",
+        name = "Pupil_Diameters_EL_{}".format(idx),
         description = ','.join(LRpupils),
         data = compressData(pupil_size.astype(float)),
         timestamps = times,
@@ -415,7 +438,7 @@ def eyelinkData(info, data, time, nwb):
 
     # Creating a TimeSeries Object
     pupil_rotation = TimeSeries(
-        name = "Pupil_Rotation_EL",
+        name = "Pupil_Rotation_EL_{}".format(idx),
         description = ','.join(pupilAngle),
         data = compressData(pupil_angle.astype(float)),
         timestamps = times, 
@@ -428,7 +451,7 @@ def eyelinkData(info, data, time, nwb):
         nwb.add_acquisition(i)
 
 # Creating device, electrode data, and ElectricalSeries from EEG stream of XDF file
-def eegData(info, data, time, vhdr_list, nwb):
+def eegData(info, data, time, vhdr_list, nwb, idx):
 
     # Creating Device
     device = nwb.create_device(
@@ -442,6 +465,7 @@ def eegData(info, data, time, vhdr_list, nwb):
 
     # Getting all electrode group names
     electrode_group_names = getLabels(info)
+    electrode_group_names.remove('MkIdx')
 
     #gathering location data (coordinates)
     standard_df = pd.read_csv('standard_coordinates.csv', index_col=0)
@@ -460,49 +484,59 @@ def eegData(info, data, time, vhdr_list, nwb):
     "TP":"Temporal-Pareital",
     "FT":"Frontal-Temporal",
     "PO":"Pareital-Occipital",
-    "I":"Inion"
+    "I":"Inion",
+    "ECG":"Heart",
+    "EOGL":"Eye",
+    "EOGU":"Eye"
     }
 
     # Getting all impedance values
-    headers = ['File', 'Run' 'Electrode', 'Impedance(kohms)']
-    # imp_dict = {}
-    table = []
-
+    runs = []
+    impedance_list = []
+    impdict = {}
     for i in vhdr_list:
         labels, run_number, impedances, fname = getImps(i)
-        row = [fname, run_number, labels, impedances]
-        table.append(row)
-        # df = pd.DataFrame(impedances, index=labels)
-        # imp_dict['{}'.format(fname)] = df
+        runs.append(run_number)
+        impedance_list.append(impedances)
+
+    for i in impedance_list:
+        for j in range(len(i)):
+            if i[j] == 'N/A':
+                i[j] = np.nan
+            else:
+                i[j] = int(i[j])
     
-    df2 = pd.DataFrame(table, columns=headers)
-    runlist = list(df2['Run'])
-    allimpvalues = []
-    for i in runlist:
-        impvalues = list(df2[df2['Run'] == i]['Impedance(kohms)'])
-        allimpvalues.append(impvalues[0])
+    imp_array = np.array(impedance_list)
+    imp_array = imp_array.T
+    imp_array = imp_array.tolist()
+
+    for i in range(len(labels)):
+        impdict[labels[i]] = imp_array[i]
+
 
     # Create custom column to hold all impedance values
-    nwb.add_electrode_column(name='allImpedances', description='Impedance values from {}'.format(runlist))
+    nwb.add_electrode_column(name='allImpedances', description='Impedance values from {} in kohms'.format(runs))
 
     #creating electrode groups with all the metadata
     electrode_counter = 0
+
     for i in electrode_group_names:
+        abbr_loc = re.sub("[0-9,z]",'',i)
         electrode_group = nwb.create_electrode_group(
             name=info["name"][0] + " {}".format(i),
             description="desc",
             device=device,
-            location=location_dict[i],
+            location=location_dict[abbr_loc],
             )
     
         nwb.add_electrode(
             group=electrode_group,
             group_name=electrode_group.name,
-            location=location_dict[i],
+            location=location_dict[abbr_loc],
             x=standard_df.loc[i, 'x'],
             y=standard_df.loc[i, 'y'],
             z=standard_df.loc[i, 'z'],
-            allImpedances=allimpvalues
+            allImpedances = impdict[i]
         )
         electrode_counter += 1
 
@@ -519,15 +553,22 @@ def eegData(info, data, time, vhdr_list, nwb):
     colnames = ','.join(electrode_group_names[:-1])
 
     raw_electrical_series = ElectricalSeries(
-        name = "ElectricalSeries",
+        name = "ElectricalSeries_{}".format(idx),
         description = colnames,
-        data = eeg_data,
+        data = compressData(eeg_data),
         electrodes = all_table_region,
         timestamps = time
     )
     nwb.add_acquisition(raw_electrical_series)
-
+    
 #---------------------Time Anonymization----------------------------------------------#
+
+def firstTimePoint(streams):
+    timezero = []
+    for i in streams:
+        timezero.append(i['time_stamps'][0])
+    earlytimepoint = min(timezero)
+    return earlytimepoint
 
 def getTimeZero(streams, sname):
     s_info, s_data, s_time = getspeStream(streams, sname)
