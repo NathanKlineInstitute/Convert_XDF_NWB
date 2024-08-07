@@ -67,7 +67,7 @@ print('\n')
 
 
 # finding xdf files that have not been converted to nwb files
-working_xdf_list = cstr2list
+working_xdf_list = xdf_list
 not_converted = []
 for i in working_xdf_list:
     fname = os.path.basename(i)
@@ -91,11 +91,11 @@ for xdf_file in working_list:
     print('Currently reading:', xdf_file)
     xdffname = os.path.basename(xdf_file)
     sub, ses, taskrun = getSubSesTask(xdffname)
-    nwbFileName = xdffname.replace('_lsl.xdf.gz', '_MoBI.nwb')
+    nwbFileName = xdffname.replace('_lsl.xdf.gz', '_MoBI.nwb') # creating NWB file name
     fullpath = nwbfilepath + '{}/{}'.format(sub, ses)
-    jsonFileName = nwbFileName.replace('.nwb', '.json')
-    jsonpath = os.path.join(fullpath, jsonFileName)
-    nwbpath = os.path.join(fullpath, nwbFileName)
+    jsonFileName = nwbFileName.replace('.nwb', '.json') # creating json file name
+    jsonpath = os.path.join(fullpath, jsonFileName) # Full path of json file
+    nwbpath = os.path.join(fullpath, nwbFileName)# Full path of nwb file
     print('Will Create: ', nwbpath)
     print('Will Create: ', jsonpath)
     name = xdffname.split('_')
