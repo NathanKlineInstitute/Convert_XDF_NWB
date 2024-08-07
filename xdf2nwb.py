@@ -52,7 +52,7 @@ task_dict = {
 xdffilepath = '/data2/Projects/NKI_RS2/MoBI/'
 nwbfilepath = '/data2/Projects/NKI_RS2/MoBI/NWB/NWB_BIDS_A/'
 
-# Anonimyze?
+# Anonymize?
 anonymize = True
 
 # list of all xdf and nwb files
